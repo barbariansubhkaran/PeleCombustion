@@ -202,9 +202,62 @@ gmtime_r(&time_type, &time_now);
 
 if(amrex::ParallelDescriptor::IOProcessor())
 {
-  
+  amrex::Print() << std::setfill('0') << "\nEnding run at " << std::setw(2)
+                 << time_now.tm_hour << ":" << std::setw(2) << time_now.tm_min
+                 << ":" << std::setw(2) << time_now.tm_sec << "UTC on"
+                 << time_now.tm_year + 1900 << "-" << std::setw(2)
+                 << time_now.tm_mon + 1 << "-" << std::setw(2)
+                 << time_now.tm_mday << "." << '\n';
 }
 
+
+bool raise_failure = (amrptr->okToContinue() == 0);
+delete amrptr;
+
+const in IOProc = amrex::ParallelDescriptor::IOProcessorNumber();
+
+
+
+amrex::Real dRunTime3 = amrex::ParallelDescriptor::second();
+
+amrex::Real runtime_total = dRunTime3 - dRunTime1;
+amrex::Real runtime_timestep = dRunTime3 - dRunTime2;
+
+amrex::ParallelDescriptor::ReduceRealMax(runtime_total, IOProc);
+amrex::ParallelDescriptor::ReduceRealMax(runtime_timestep, IOProc);
+
+
+if(amrex::ParallelDescriptor::IOProcessor())
+{
+  amrex::Print() << "Run Time = " << runtime_total << '\n';
+  amrex::Print() << "Run  Time w/o init = " << runtime_timestep << '\n';
+}
+
+
+if(auto* arena = dynamic_cast<amrex::CArena*>(amrex::The_Arena()))
+{
+  amrex::ParallelDescriptor::Barrier();
+
+  char buf[256];
+
+  snprintf(buf, 256, "CPU(%d): Heap Space (bytes) used by Coalesing FAB Arena: %z", amrex::ParallelDescriptor::MyProc(), arena->heap_space_used());
+
+  amrex::Print() << buf << std::endl;
+}
+
+BL_PROFILE_VAR_STOP(pmain);
+BL_PROFILE_SET_RUN_TIME(dRunTime2);
+
+if(raise_failure)
+{
+  amrex::Abort("Simulation stopped early");
+}
+
+#ifndef AMREX_USE_SUNDIALS
+  amrex::sundials::Finalize();
+#endif
+
+amrex::Finalize();
 
 
     return 0;
