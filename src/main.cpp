@@ -133,12 +133,77 @@ auto* amrptr = new PeleCAmr(getLevelBld());
 
 
 amrex::AmrLevel::SetEBSupportLevel(amrex::EBSupport::full);
+amrex::AmrLevel::SetEBMaxGrowCells(PeleC::nGrow() + 1, PeleC::numGrow() + 1, PeleC::numGrow() + 1);
+
+
+initialize_EB2(
+
+ amrptr->Geom(PeleC::getEBMaxLevel()), PeleC::getEBMaxLevel(),
+ amrptr->maxlevel(), PeleC::getEBcoarsening(), amrptr->refRatio(),
+ amrptr->maxGridSize(amrptr->maxLevel())
+);
+
+
+amrptr->init(start_time, stop_time);
+
+
+#ifdef AMREX_USE_ASCENT
+  amrptr->doInSituViz(amrptr->levelSteps(0));
+#endif
+
+
+if(amrptr->RegridOnRestart() && ((amrptr->levelSteps(0) >= max_step) || (amrptr->cumTime() >= stop_time)))
+{
+  amrptr->RegridOnly(amrptr->cumTime());
+}
+
+
+amrex::Real dRunTime2 = amrex::ParallelDescriptor::second();
+amrex::Real wall_time_elapsed{0.0};
+
+while(
+         (amrptr->okToContinue() != 0) &&
+         (amrptr->levelSteps(0) < max_step || max_step < 0) &&
+         (amrptr->cumTime() < stop_time || stop_time < 0.0) &&
+         (wall_time_elapsed < (max_wall_time * 3600) || max_wall_time < 0.0)
+)
+{
+   amrptr->coarseTimeStep(stop_time);
+
+#ifdef AMREX_USE_ASCENT
+  amrptr->doInSituViz(amrptr->levelSteps(0));
+#endif
+
+
+wall_time_elapsed = amrex::ParallelDescriptor::second() - dRunTime1;
+amrex::ParallelDescriptor::ReduceRealMax(wall_time_elapsed);
+
+}
+
+
+if(amrptr->stepOfLastCheckPoint() < amrptr->levelSteps(0))
+{
+   amrptr->checkPoint();
+}
 
 
 
 
+if(amrptr->stepOfLastCheckPoint() < amrptr->levelSteps(0))
+{
+  amrptr->writePlotFile();
+}
 
 
+
+time(&time_type);
+
+gmtime_r(&time_type, &time_now);
+
+if(amrex::ParallelDescriptor::IOProcessor())
+{
+  
+}
 
 
 
