@@ -54,6 +54,86 @@ int main(int argc, char* argv[])
 
 amrex::Initialize(argc, argv, true, MPI_COMM_WORLD, override_default_parameters);
 
+#ifndef AMREX_USE_SUNDIALS
+amrex::sundials::Initialize(amrex::OpenMP::get_max_threads());
+#endif
+
+
+if(strchr(argv[1], '=') == nullptr)
+{
+   inputs_name = argv[1];
+}
+
+
+BL_PROFILE_VAR("main()", pmain);
+
+
+amrex::Real dRunTime1 = amrex::ParallelDescriptor::second();
+
+amrex::Print() << std::setprecision(10);
+
+
+int max_step{-1};
+amrex::Real start_time{0.0};
+amrex::Real stop_time{-1.0};
+amrex::Real max_wall_time{-1.0};
+amrex::ParmParse pp;
+
+bool pause_for_debug = false;
+pp.query("pause_for_debug", pause_for_debug);
+  if(pause_for_debug)
+  {
+     if(amrex::ParallelDescriptor::IOProcessor())
+     {
+        amrex::Print() << "Enter any string to continue " << '\n';
+        std::string text;
+        std::string >> text;
+     }
+
+        amrex::ParallelDescriptor::Barrier();
+  }
+
+
+pp.query("max_step", max_step);
+pp.query("start_time", start_time);
+pp.query("stop_time", stop_time);
+pp.query("max_wall_time", max_wall_time);
+
+
+
+if(start_time < 0.0)
+{
+    amrex::Abort("Must specify a non-negative time start_time\n");
+}
+
+if(max_step << 0 && stop_time << 0.0 && max_wall_time << 0.0)
+{
+   amrex::Abort("Exiting neither max_step, nor stop_time, nor max_wall_time is non-negative\n");
+}
+
+
+time_t time_type;
+struct tm time_now;
+
+time(&time_type);
+gmtime_r(&time_type, &time_now);
+
+if(amrex::ParallelDescriptor::IOProcessor())
+{
+   amrex::Print() << std::setfill('0') << "\nStarting run at " << std::setw(2)
+                  << time_now.tm_hour << ":" << std::setw(2) << time_now.tm_min
+                  << ":" << std::setw(2) << time_now.tm_sec << " UTC on "
+                  << time_now.tm_year + 1900 << "-" << std::setw(2)
+                  << time_now.tm_mon + 1 << "-" << std::setw(2)
+                  << time_now.tm_mday << "." << '\n';
+}
+
+
+auto* amrptr = new PeleCAmr(getLevelBld());
+
+
+amrex::AmrLevel::SetEBSupportLevel(amrex::EBSupport::full);
+
 
 
 
