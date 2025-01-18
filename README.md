@@ -1,5 +1,5 @@
-# PeleCombustion
-## An adaptive mesh refinement solver for compressible reacting flows with support for external meshing software
+# PeleCombustionFoam
+## An adaptive mesh refinement solver for compressible reacting flows with coupling with OpenFOAM.
 
 
 
